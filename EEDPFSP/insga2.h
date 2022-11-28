@@ -17,6 +17,7 @@ public:
 	void calu_crowding_distance(int i);
 	void crowding_sort(int i);
 	void localSearch();
+	void updateArchive();
 
 	void run();
 
@@ -28,7 +29,7 @@ public:
 	TIndividual* Qt;
 	TIndividual** Ft = new TIndividual * [2 * popsize];
 
-	vector<TIndividual>PA;
+	vector<vector<double>>PA;
 
 	int Pnum;
 	int Qnum;
@@ -59,6 +60,7 @@ TINSGA::~TINSGA()
 
 void TINSGA::run()
 {
+	int t = 0;
 	clock_t startTime, endTime;
 	startTime = clock();
 	endTime = startTime;
@@ -67,7 +69,7 @@ void TINSGA::run()
 		makenewpop();
 		fast_nondominated_sort();
 		localSearch();
-		fast_nondominated_sort();
+		updateArchive();
 		Pnum = 0;
 		int maxRank = 0;
 		while (Pnum + len[maxRank] <= popsize) {
@@ -84,14 +86,10 @@ void TINSGA::run()
 		int num = Pnum;
 		for (size_t j = 0; j < popsize - num; j++)
 			Pt[Pnum++] = Ft[maxRank][j];
-		for (size_t i = 0; i < popsize; i++)
-			Pt[i].updatePA(PA);
 		endTime = clock();
-		/*showPt();
-		cout << endl;
-		showPA();
-		cout << endl;*/
+		t++;
 	}
+	cout << t << endl;
 }
 
 void TINSGA::init_population()
@@ -104,6 +102,17 @@ void TINSGA::init_population()
 		Pt[i].init_rand();
 	Pnum = popsize;
 	Qnum = 0;
+	for (size_t i = 0; i < popsize; i++) {
+		for (auto it = Pt[i].x_var.begin(); it != Pt[i].x_var.end(); it++) {
+			for (auto t = (*it).begin(); t != (*it).end(); t++) {
+				if ((*t) <= 0) {
+					Pt[i].show_variable();
+					cout << "init wrong" << endl;
+				}
+			}
+		}
+	}
+
 }
 
 void TINSGA::makenewpop()
@@ -134,6 +143,16 @@ void TINSGA::makenewpop()
 			Qt[i].swapNew(PA); break;
 		case 2:
 			Qt[i].hybridNew(PA); break;
+		}
+	}
+	for (size_t i = 0; i < popsize; i++) {
+		for (auto it = Qt[i].x_var.begin(); it != Qt[i].x_var.end(); it++) {
+			for (auto t = (*it).begin(); t != (*it).end(); t++) {
+				if ((*t) <= 0) {
+					Qt[i].show_variable();
+					cout << "make new pop wrong" << endl;
+				}
+			}
 		}
 	}
 	for (size_t i = 0; i < popsize; i++)
@@ -235,15 +254,42 @@ void TINSGA::crowding_sort(int i)
 	qsort(Ft[i], n, sizeof(TIndividual), cmp_d);
 }
 
+void TINSGA::updateArchive()
+{
+	bool flag;
+	TIndividual x;
+	for (int i = 0; i < len[0]; i++) {
+		flag = true;
+		x = Ft[0][i];
+		for (vector<vector<double>>::iterator it = PA.begin(); it != PA.end();) {
+			if (is_dominated(x.y_obj, *it))
+				it = PA.erase(it);
+			else {
+				if ((x.y_obj[0] == (*it)[0] && x.y_obj[1] == (*it)[1]) || is_dominated(*it, x.y_obj)) {
+					flag = false;
+					break;
+				}
+				it++;
+			}
+		}
+		if (flag) {
+			PA.push_back(x.y_obj);
+		}
+	}
+}
+
 void TINSGA::localSearch()
 {
-	Qnum = 0;
-	for (size_t i = 0; i < len_f; i++) {
-		for (size_t j = 0; j < len[i]; j++)
-			Qt[Qnum++] = Ft[i][j];
-	}
 	for (size_t i = 0; i < len[0]; i++) {
- 		Qt[i].localIntensifization(PA);
+ 		Ft[0][i].localIntensifization(PA);
+		for (auto it = Ft[0][i].x_var.begin(); it != Ft[0][i].x_var.end(); it++) {
+			for (auto t = (*it).begin(); t != (*it).end(); t++) {
+				if ((*t) <= 0) {
+					Ft[0][i].show_variable();
+					cout << "local search wrong" << endl;
+				}
+			}
+		}
 	}
 }
 
@@ -280,8 +326,7 @@ void TINSGA::showQt()
 void TINSGA::showPA()
 {
 	for (auto it = PA.begin(); it != PA.end();it++) {
-		it->show_objective();
-		//it->show_variable();
+		cout << (*it)[0] << " " << (*it)[1] << endl;
 	}
 }
 

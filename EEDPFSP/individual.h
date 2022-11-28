@@ -12,9 +12,11 @@ public:
 	vector <vector<int>> x_var;//solution
 	vector<vector<int>>x_speed;//speed n*m
 	vector <double> y_obj;//object
+	vector<vector<pair<int, int>>>critial_path;
 
 	double PEC[factorysize];
 	double SEC[factorysize];
+	double TEC[factorysize];
 	double Compelet[factorysize];
 	double idleTime[jobsize][machinesize];//n*m for x_speed
 
@@ -41,13 +43,13 @@ public:
 	void init_RandSMinTEC();
 
 
-	void insertNew(vector<TIndividual> &archive);
-	void swapNew(vector<TIndividual> &archive);
-	void hybridNew(vector<TIndividual> &archive);
+	void insertNew(vector<vector<double>> &archive);
+	void swapNew(vector<vector<double>> &archive);
+	void hybridNew(vector<vector<double>> &archive);
 
-	void updatePA(vector<TIndividual> &archive);
+	void updatePA(vector<vector<double>> &archive);
 
-	void localIntensifization(vector<TIndividual> &archive);
+	void localIntensifization(vector<vector<double>> &archive);
 
 	void show_objective();
 	void show_variable();
@@ -58,6 +60,7 @@ TIndividual::TIndividual()
 {
 	x_var.resize(factorysize);
 	x_speed.resize(jobsize);
+	critial_path.resize(factorysize);
 	memset(idleTime, 0, sizeof(idleTime));
 	for (size_t n = 0; n < numObjectives; ++n)
 		y_obj.push_back(0.0);
@@ -106,6 +109,12 @@ void TIndividual::factory_obj(int f)
 	SEC[f] = 0;
 	for (vector<int>::iterator it = x_var[f].begin(); it != x_var[f].end(); it++) {
 		size_t n = *it;
+		if (n <= 0) {
+			cout << "job index wrong" << endl;
+			for (auto t = x_var[f].begin(); t != x_var[f].end(); t++)
+				cout << *t << endl;
+			cout << endl;
+		}
 		for (size_t j = 0; j < machinesize; j++) {
 			NewT[ii][j] = double(Time[n - 1][j]) / Speed[x_speed[n - 1][j]];
 			PEC[f] += (NewT[ii][j] * 4 * Speed[x_speed[n - 1][j]] * Speed[x_speed[n - 1][j]]);
@@ -130,28 +139,46 @@ void TIndividual::factory_obj(int f)
 		SEC[f] += (C.back()[i] -C.front()[i]- sumP[i]) * SP;
 	}
 	Compelet[f] = C.back().back();
+	TEC[f] = PEC[f] + SEC[f];
+	size_t i = subjSize - 1;
+	size_t j = machinesize - 1;
+	critial_path[f].clear();
+	critial_path[f].push_back(pair<int, int>{x_var[f][i], machinesize - 1});
+	while (i >= 0) {
+		if (i > 0 && j > 0) {
+			if (C[i][j - 1] > C[i - 1][j])
+				--j;
+			else
+				--i;
+			critial_path[f].insert(critial_path[f].begin(), pair<int, int>{x_var[f][i], j});
+		}
+		else if (i == 0 && j > 0) {
+			--j;
+			critial_path[f].insert(critial_path[f].begin(), pair<int, int>{x_var[f][i], j});
+		}
+		else if (j == 0 && i > 0) {
+			--i;
+			critial_path[f].insert(critial_path[f].begin(), pair<int, int>{x_var[f][i], j});
+		}
+		else {
+			break;
+		}
+	}
 }
 
 void TIndividual::speedup(int f)
 {
-	for (int i = 0; i < machinesize; ++i) {
-		if (x_speed[x_var[f].back() - 1][i] < 4)
-			x_speed[x_var[f].back() - 1][i] += 1;
-	}
-	for (auto it = x_var[f].begin(); it != x_var[f].end()-1; it++) {
-		size_t n = *it;
-		if (x_speed[n - 1][0] < 4)
-			x_speed[n - 1][0] += 1;
+	double cost = TEC[f];
+	for (auto it = critial_path[f].begin(); it != critial_path[f].end(); it++) {
+		if (x_speed[it->first - 1][it->second] < 4) {
+			x_speed[it->first - 1][it->second]++;
+		}
 	}
 }
 
 void TIndividual::randspeedup(int f) {
-	for (auto it = x_var[f].begin(); it != x_var[f].end(); it++) {
-		size_t n = *it;
-		for (int i = 0; i < machinesize; ++i) {
-			x_speed[n - 1][i] += rand_int(0, 4 - x_speed[n - 1][i]);
-			if (x_speed[n - 1][i] > 4)	cout << "x_speed wrong" << endl;
-		}
+	for (auto it = critial_path[f].begin(); it != critial_path[f].end(); it++) {
+		x_speed[it->first - 1][it->second] += rand_int(0, 4 - x_speed[it->first - 1][it->second]);
 	}
 }
 
@@ -160,7 +187,15 @@ void TIndividual::speeddown(int f)
 	double cost = y_obj[0];
 	for (auto it = x_var[f].begin(); it != x_var[f].end()-1; it++) {
 		size_t n = *it;
+		if (n <= 0) {
+			cout << "job index wrong" << endl;
+			for (auto t = x_var[f].begin(); t != x_var[f].end(); t++)
+				cout << *t << endl;
+			cout << endl;
+		}
 		for (int i = 1; i < machinesize; ++i) {
+			if (find(critial_path[f].begin(), critial_path[f].end(), pair<int, int>{n, i}) != critial_path[f].end())
+				continue;
 			while (x_speed[n - 1][i] > 0 ) {
 				--x_speed[n - 1][i];
 				factory_obj(f);
@@ -179,6 +214,8 @@ void TIndividual::randspeeddown(int f)
 	for (auto it = x_var[f].begin(); it != x_var[f].end(); it++) {
 		size_t n = *it;
 		for (int i = 0; i < machinesize; ++i) {
+			if (find(critial_path[f].begin(), critial_path[f].end(), pair<int, int>{n, i}) != critial_path[f].end())
+				continue;
 			x_speed[n - 1][i] -= rand_int(0, x_speed[n - 1][i] - 0);
 			if (x_speed[n - 1][i] < 0)	cout << "x_speed wrong" << endl;
 		}
@@ -353,28 +390,26 @@ void TIndividual::init_RandSMinTEC()
 	obj_eval();
 }
 
-void TIndividual::updatePA(vector<TIndividual> &archive) 
+void TIndividual::updatePA(vector<vector<double>> &archive) 
 {
-	TIndividual ind;
-	ind.x_var = this->x_var;
-	ind.x_speed = this->x_speed;
-	ind.y_obj = this->y_obj;
-	ind.fmax = this->fmax;
-	ind.ftec = this->ftec;
-	for (auto it = archive.begin(); it != archive.end(); it++) {
-		if (is_dominated(it->y_obj, ind.y_obj))
-			return;
-	}
-	for (size_t i = 0; i < archive.size();i++) {
-		if (is_dominated(ind.y_obj, archive[i].y_obj)) {
-			archive.erase(archive.begin() + i);
-			i--;
+	bool flag = true;
+	for (vector<vector<double>>::iterator it = archive.begin(); it != archive.end();) {
+		if (is_dominated(y_obj, *it))
+			it = archive.erase(it);
+		else {
+			if ((y_obj[0] == (*it)[0] && y_obj[1] == (*it)[1]) || is_dominated(*it, y_obj)) {
+				flag = false;
+				break;
+			}
+			it++;
 		}
 	}
-	archive.emplace_back(ind);
+	if (flag) {
+		archive.push_back(y_obj);
+	}
 }
 
-void TIndividual::insertNew(vector<TIndividual> &archive)
+void TIndividual::insertNew(vector<vector<double>> &archive)
 {
 	int objfactory = 0;
 	bool flag = 0;
@@ -389,8 +424,9 @@ void TIndividual::insertNew(vector<TIndividual> &archive)
 		objfactory = fmax;
 	else
 		objfactory = ftec;
-
-	while (jobtried.size() < x_var[objfactory].size() / 2) {
+	if (x_var[objfactory].size() < 1)
+		cout << "factory size wrong" << endl;
+	while (jobtried.size() < min(2,ceil(x_var[objfactory].size()/2.0))) {
 		x_var.assign(temp_var.begin(), temp_var.end());
 		x_speed.assign(temp_speed.begin(), temp_speed.end());
 		y_obj.assign(temp_obj.begin(), temp_obj.end());
@@ -399,8 +435,8 @@ void TIndividual::insertNew(vector<TIndividual> &archive)
 			pos = rand_int(0, x_var[objfactory].size() - 1);
 		job = x_var[objfactory][pos];
 		x_var[objfactory].erase(x_var[objfactory].begin() + pos);
-		jobtried.emplace_back(job);
-		factory_obj(objfactory);
+		jobtried.push_back(job);
+		//factory_obj(objfactory);
 		if (flag == 0) {
 			randspeedup(objfactory);
 			speedup(objfactory);
@@ -414,7 +450,7 @@ void TIndividual::insertNew(vector<TIndividual> &archive)
 				for (int j = 0; j < x_var[i].size(); j++) {
 					x_speed.assign(temp_speed.begin(), temp_speed.end());
 					x_var[i].insert(x_var[i].begin() + j, job);
-					factory_obj(i);
+					//factory_obj(i);
 					if (flag == 0) {
 						randspeedup(i);
 						speedup(i);
@@ -433,10 +469,10 @@ void TIndividual::insertNew(vector<TIndividual> &archive)
 			}
 		}
 	}
-	x_var[factorysize - 1].emplace_back(job);
+	x_var[factorysize - 1].push_back(job);
 }
 
-void TIndividual::swapNew(vector<TIndividual> &archive)
+void TIndividual::swapNew(vector<vector<double>> &archive)
 {
 	int objfactory = 0;
 	bool flag = 0;
@@ -452,8 +488,9 @@ void TIndividual::swapNew(vector<TIndividual> &archive)
 		objfactory = fmax;
 	else
 		objfactory = ftec;
-
-	while (jobtried.size() < x_var[objfactory].size() / 2) {
+	if (x_var[objfactory].size() < 1)
+		cout << "factory size wrong" << endl;
+	while (jobtried.size() < min(2, ceil(x_var[objfactory].size() / 2.0))) {
 		x_var.assign(temp_var.begin(), temp_var.end());
 		y_obj.assign(temp_obj.begin(), temp_obj.end());
 		pos = rand_int(0, x_var[objfactory].size() - 1);
@@ -461,7 +498,7 @@ void TIndividual::swapNew(vector<TIndividual> &archive)
 			pos = rand_int(0, x_var[objfactory].size() - 1);
 		job = x_var[objfactory][pos];
 		x_var[objfactory].erase(x_var[objfactory].begin() + pos);
-		jobtried.emplace_back(job);
+		jobtried.push_back(job);
 		for (int i = 0; i < factorysize; i++) {
 			if (i != objfactory) {
 				for (int j = 0; j < x_var[i].size(); j++) {
@@ -469,8 +506,8 @@ void TIndividual::swapNew(vector<TIndividual> &archive)
 					x_speed.assign(temp_speed.begin(), temp_speed.end());
 					x_var[objfactory][pos] = x_var[i][j];
 					x_var[i][j] = job;
-					factory_obj(objfactory);
-					factory_obj(i);
+					//factory_obj(objfactory);
+					//factory_obj(i);
 					if (flag == 0) {
 						randspeedup(objfactory);
 						speedup(objfactory);
@@ -494,7 +531,7 @@ void TIndividual::swapNew(vector<TIndividual> &archive)
 	}
 }
 
-void TIndividual::hybridNew(vector<TIndividual> &archive)
+void TIndividual::hybridNew(vector<vector<double>> &archive)
 {
 	if (rand_real(0, 1) < 0.5)
 		swapNew(archive);
@@ -502,7 +539,7 @@ void TIndividual::hybridNew(vector<TIndividual> &archive)
 		insertNew(archive);
 }
 
-void TIndividual::localIntensifization(vector<TIndividual> &archive)
+void TIndividual::localIntensifization(vector<vector<double>> &archive)
 {
 	TIndividual sol0;
 	sol0.x_var = x_var;
@@ -517,7 +554,7 @@ void TIndividual::localIntensifization(vector<TIndividual> &archive)
 
 	for (int i = 0; i < factorysize; i++) {
 		for (int j = 0; j < sol0.x_var[i].size(); j++)
-			jobPermu.emplace_back(pair<int, int>{ i, sol0.x_var[i][j] });
+			jobPermu.push_back(pair<int, int>{ i, sol0.x_var[i][j] });
 	}
 	while(k<jobsize && cnt<jobsize){
 		job = jobPermu[k].second;
@@ -527,7 +564,7 @@ void TIndividual::localIntensifization(vector<TIndividual> &archive)
 			continue;
 		}
 		sol0.x_var[f].erase(find(sol0.x_var[f].begin(), sol0.x_var[f].end(),job));
-		sol0.factory_obj(f);
+		//sol0.factory_obj(f);
 		if (costflag == 0) {
 			sol0.randspeedup(f);
 			sol0.speedup(f);
@@ -541,7 +578,7 @@ void TIndividual::localIntensifization(vector<TIndividual> &archive)
 			if (i != f) {
 				for (int j = 0; j < sol0.x_var[i].size(); j++) {
 					sol0.x_var[i].insert(sol0.x_var[i].begin() + j, job);
-					sol0.factory_obj(i);
+					//sol0.factory_obj(i);
 					if (costflag == 0) {
 						sol0.randspeedup(i);
 						sol0.speedup(i);

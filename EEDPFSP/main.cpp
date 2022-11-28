@@ -5,21 +5,21 @@ int main()
 	srand((unsigned int)time(NULL));
 	for (size_t k = 1; k <= 1; k++) {
 		ofstream outfile;
-		string filename = "Perato20_8_2_" + to_string(k) + ".txt";
+		string filename = "Perato20_16_4_" + to_string(k) + ".txt";
 		outfile.open(filename, ostream::app);
 		ReadFile(k);
-		vector<TIndividual>archive;
+		vector<vector<double>>archive;
 		for (int i = 0; i < 10; i++) {
 			TINSGA* pop = new TINSGA;
 			pop->run();
 			bool flag;
 			for (auto it1 = pop->PA.begin(); it1 != pop->PA.end(); it1++) {
 				flag = true;
-				for (vector<TIndividual>::iterator it2 = archive.begin(); it2 != archive.end();) {
-					if (is_dominated(it1->y_obj, it2->y_obj))
+				for (vector<vector<double>>::iterator it2 = archive.begin(); it2 != archive.end();) {
+					if (is_dominated(*it1, *it2))
 						it2 = archive.erase(it2);
 					else {
-						if ((it1->y_obj[0] == it2->y_obj[0] && it1->y_obj[1] == it2->y_obj[1]) || is_dominated(it2->y_obj, it1->y_obj)) {
+						if (((*it1)[0] == (*it2)[0] && (*it1)[1] == (*it2)[1]) || is_dominated(*it2, *it1)) {
 							flag = false;
 							break;
 						}
@@ -32,7 +32,7 @@ int main()
 			}
 		}
 		for (auto it = archive.begin(); it != archive.end(); it++)
-			outfile << it->y_obj[0] << " " << it->y_obj[1] << endl;
+			outfile << (*it)[0] << " " << (*it)[1] << endl;
 	}
 	
 	

@@ -16,8 +16,8 @@
 #include<numeric>
 #define numObjectives 2
 #define jobsize 20
-#define machinesize 8
-#define factorysize 2
+#define machinesize 16
+#define factorysize 4
 #define popsize 30
 #define URAND (rand()/(RAND_MAX+1.0))
 
@@ -31,34 +31,34 @@ void ReadFile(int k)
 {
 	ifstream in;
 	if (k == 1) {
-		in.open("./instances/I_20_8_2_1.txt");
+		in.open("./instances/I_20_16_4_1.txt");
 	}
 	else if (k == 2) {
-		in.open("./instances/I_20_16_2_2.txt");
+		in.open("./instances/I_80_16_4_2.txt");
 	}
 	else if (k == 3) {
-		in.open("./instances/I_20_16_2_3.txt");
+		in.open("./instances/I_80_16_4_3.txt");
 	}
 	else if (k == 4) {
-		in.open("./instances/I_20_16_2_4.txt");
+		in.open("./instances/I_80_16_4_4.txt");
 	}
 	else if (k == 5) {
-		in.open("./instances/I_20_16_2_5.txt");
+		in.open("./instances/I_80_16_4_5.txt");
 	}
 	else if (k == 6) {
-		in.open("./instances/I_20_16_2_6.txt");
+		in.open("./instances/I_80_16_4_6.txt");
 	}
 	else if (k == 7) {
-		in.open("./instances/I_20_16_2_7.txt");
+		in.open("./instances/I_80_16_4_7.txt");
 	}
 	else if (k == 8) {
-		in.open("./instances/I_20_16_2_8.txt");
+		in.open("./instances/I_80_16_4_8.txt");
 	}
 	else if (k == 9) {
-		in.open("./instances/I_20_16_2_9.txt");
+		in.open("./instances/I_80_16_4_9.txt");
 	}
 	else if (k == 10) {
-		in.open("./instances/I_20_16_2_10.txt");
+		in.open("./instances/I_80_16_4_10.txt");
 	}
 	assert(in.is_open());
 	int number;
